@@ -20,15 +20,19 @@ if (!isset($_SESSION['secret']) || isset($_GET['reset'])) {
     $_SESSION['won'] = false;
 }
 
+if (!empty($_SESSION['finished'])) {
+    header("Location: resultado.php");
+    exit;
+}
+
 $secret = $_SESSION['secret'];
 $attempts = $_SESSION['attempts'];
-$finished = $_SESSION['finished'];
-$won = $_SESSION['won'];
 $message = "";
 
 // Procesar intento si el juego no ha terminado
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$finished) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $guess = preg_replace('/\D/', '', $_POST['guess'] ?? '');
+
     if (strlen($guess) != $NUM_DIGITS) {
         $message = "Debes escribir exactamente $NUM_DIGITS cifras.";
     } elseif (strlen(count_chars($guess, 3)) != $NUM_DIGITS) {
@@ -43,18 +47,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$finished) {
                 $partial++;
             }
         }
+
         $_SESSION['attempts'][] = [
-            'guess' => $guess,
-            'exact' => $exact,
-            'partial' => $partial
+                'guess' => $guess,
+                'exact' => $exact,
+                'partial' => $partial
         ];
 
         // Verificar si ganó o perdió
         if ($exact == $NUM_DIGITS) {
             $_SESSION['finished'] = true;
             $_SESSION['won'] = true;
+            header("Location: resultado.php");
+            exit;
         } elseif (count($_SESSION['attempts']) >= $MAX_ATTEMPTS) {
             $_SESSION['finished'] = true;
+            $_SESSION['won'] = false;
+            header("Location: resultado.php");
+            exit;
         }
 
         header("Location: index.php");
@@ -77,29 +87,20 @@ $remaining = $MAX_ATTEMPTS - count($_SESSION['attempts']);
     <p>Adivina el número de <?= $NUM_DIGITS ?> cifras distintas.<br>
         Tienes <?= $MAX_ATTEMPTS ?> intentos.</p>
 
-    <?php if (!$finished): ?>
-        <form method="post">
-            <input type="text" name="guess" maxlength="<?= $NUM_DIGITS ?>" required autofocus placeholder="Ej: 123">
-            <button type="submit">Intentar</button>
-        </form>
-        <?php if ($message): ?><p class="message"><?= htmlspecialchars($message) ?></p><?php endif; ?>
-        <p>Intentos restantes: <?= $remaining ?></p>
-    <?php else: ?>
-        <div class="result">
-            <?php if ($won): ?>
-                <h3>¡Correcto! El número era <?= htmlspecialchars($secret) ?>.</h3>
-            <?php else: ?>
-                <h3>¡Has perdido! El número era <?= htmlspecialchars($secret) ?>.</h3>
-            <?php endif; ?>
-            <p><a href="?reset=1">
-                    <button>Jugar otra vez</button>
-                </a></p>
-        </div>
+    <form method="post">
+        <input type="text" name="guess" maxlength="<?= $NUM_DIGITS ?>" required autofocus placeholder="Ej: 123">
+        <button type="submit">Intentar</button>
+    </form>
+
+    <?php if ($message): ?>
+        <p class="message" style="color: red;"><?= htmlspecialchars($message) ?></p>
     <?php endif; ?>
 
-    <?php if ($attempts): ?>
+    <p>Intentos restantes: <?= $remaining ?></p>
+
+    <?php if (!empty($attempts)): ?>
         <h3>Intentos anteriores</h3>
-        <table>
+        <table border="1" cellpadding="5" cellspacing="0">
             <tr>
                 <th>#</th>
                 <th>Intento</th>
